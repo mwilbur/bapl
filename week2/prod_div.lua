@@ -1,9 +1,6 @@
 local lpeg = require "lpeg"
 local pt = require "pt"
 
-local function node(num)
-	return {tag = "number", value = num}
-end
 
 -- take a list {n1, "+", n2, "+", n3, ...} to a tree
 -- { ... { op = "+", e1 = { op = "+", e1 = n1, e2 = n2 } e2 = n3 } ... }
@@ -27,12 +24,23 @@ local function foldBin (lst)
 	for i=2,#lst,2 do
 		tree = { tag = "binop", e1 = tree, op = lst[i], e2 = lst[i+1] }
 	end
-	print(pt.pt(tree))
 	return tree
 end
 
-local function folded(p) 
-	return lpeg.Ct(p) / foldBin
+local function node(num)
+	return {tag = "number", value = num}
+end
+
+local function unary(pair) 
+	if #pair == 1 then
+		return pair[1]
+	else
+		return {tag = "unary", op = pair[1], value = pair[2] }
+	end
+end
+
+local function folded(p,f) 
+	return lpeg.Ct(p) / f
 end
 
 local spaces = lpeg.S(" \r\n")^0
@@ -42,24 +50,33 @@ local numeral = (base16_numeral + base10_numeral)/node
 local opE = lpeg.C(lpeg.S("^")) * spaces 
 local opA = lpeg.C(lpeg.S("+-")) * spaces
 local opM = lpeg.C(lpeg.S("*/%")) * spaces
+local opLTE = lpeg.C(lpeg.P("<=")) * spaces
+local opLT = lpeg.C(lpeg.P("<")) * spaces
+local opGTE = lpeg.C(lpeg.P(">=")) * spaces
+local opGT = lpeg.C(lpeg.P(">")) * spaces
+local opEQ = lpeg.C(lpeg.P("==")) * spaces
+local opNE = lpeg.C(lpeg.P("!=")) * spaces
+local opC = opLTE + opGTE + opLT + opLTE + opEQ + opNE
 local OP = "(" * spaces
 local CP = ")" * spaces
+local minus = lpeg.C(lpeg.P("-"))
 
 
 local factor = lpeg.V"factor"
 local term = lpeg.V"term"
 local power = lpeg.V"power"
 local expr = lpeg.V"expr"
+local compare = lpeg.V"compare"
 
-local grammar = lpeg.P{ "expr",
-	term = folded(factor * ( opM * factor)^0),
-	factor = numeral + OP * expr * CP,
-	power = folded(term * (opE * term)^-1),
-	expr = folded(power * ( opA * power)^0) 
-}
+local grammar = lpeg.P{ "compare",
+	term = folded(factor * ( opM * factor)^0,foldBin),
+	factor = folded((minus^-1)*numeral + (minus^-1)*(OP * compare * CP), unary),
+	power = folded(term * (opE * term)^-1,foldBin),
+	expr = folded(power * ( opA * power)^0,foldBin),
+	compare = folded(expr * (opC * expr)^-1,foldBin)
+} * -1
 
 local function parse(input)
-	print(input)
 	return grammar:match(input)
 end
 
@@ -68,23 +85,36 @@ local function addCode(state, opcode)
 	code[#code+1] = opcode
 end
 
-local ops = {
+local binops = {
 	["+"] = "add", 
 	["-"] = "sub", 
 	["*"] = "mul", 
 	["/"] = "div",
 	["^"] = "exp",
-	["%"] = "rem"
+	["%"] = "rem",
+	["<"] = "lt",
+	["<="] = "le",
+	[">"] = "gt",
+	[">="] = "ge",
+	["=="] = "eq",
+	["!="] = "ne",
+}
+
+local unaryops = {
+	["-"] = "neg", 
 }
 
 local function codeExpr(state, ast) 
 	if ast.tag == "number" then
 		addCode(state, "push")
 		addCode(state, ast.value)
+	elseif ast.tag == "unary" then
+		codeExpr(state, ast.value)
+		addCode(state, unaryops[ast.op])
 	elseif ast.tag == "binop" then
 		codeExpr(state, ast.e1)
 		codeExpr(state, ast.e2)
-		addCode(state, ops[ast.op])
+		addCode(state, binops[ast.op])
 	else 
 		print(pt.pt(ast))
 		print(pt.pt(state))
@@ -104,7 +134,13 @@ local machine_ops = {
 	mul = function (x,y) return x*y end,
 	div = function (x,y) return x/y end,
 	exp = function (x,y) return x^y end,
-	rem = function (x,y) return x%y end
+	rem = function (x,y) return x%y end,
+	lt = function (x,y) if x<y then return 1 else return 0 end end,
+	lte = function (x,y) if x<=y then return 1 else return 0 end end,
+	gt = function (x,y) if x>y then return 1 else return 0 end end,
+	gte = function (x,y) if x>=y then return 1 else return 0 end end,
+	eq = function (x,y) if x==y then return 1 else return 0 end end,
+	ne = function (x,y) if x~=y then return 1 else return 0 end end,
 }
 
 local function run(code, stack) 
@@ -115,6 +151,8 @@ local function run(code, stack)
 			top = top + 1
 			pc = pc + 1
 			stack[top] = code[pc]
+		elseif code[pc]=="neg" then
+			stack[top] = -1*stack[top]
 		else 
 			f = machine_ops[code[pc]] or error("unkown op")
 			result = f(stack[top-1],stack[top])
@@ -124,16 +162,11 @@ local function run(code, stack)
 		pc = pc + 1
 	end
 end
----[[			
 local input = io.read("*a")
 local ast = parse(input)
 print(pt.pt(ast))
-
 local code = compile(ast)
 print(pt.pt(code))
-
 stack = {}
 run(code, stack)
 print(pt.pt(stack[1]))
---]]
-
