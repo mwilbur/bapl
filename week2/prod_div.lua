@@ -99,12 +99,12 @@ local function compile(ast)
 end
 
 local machine_ops = {
-	["add"] = function (x,y) return x+y end,
-	["sub"] = function (x,y) return x-y end,
-	["mul"] = function (x,y) return x*y end,
-	["div"] = function (x,y) return x/y end,
-	["exp"] = function (x,y) return x^y end,
-	["rem"] = function (x,y) return x%y end
+	add = function (x,y) return x+y end,
+	sub = function (x,y) return x-y end,
+	mul = function (x,y) return x*y end,
+	div = function (x,y) return x/y end,
+	exp = function (x,y) return x^y end,
+	rem = function (x,y) return x%y end
 }
 
 local function run(code, stack) 
