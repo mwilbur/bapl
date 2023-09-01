@@ -56,9 +56,9 @@ local opUM  = C(P"-"  )
 local opCM  = opLE + opLT + opGE + opGT + opEQ + opNE
 
 local base10_integer = R("09")^1 / tonumber * ss
-local base16_integer = "0" * S("xX") * (R("09","af","AF")^1 / function(x) return tonumber(x,16) end) * ss
-local base10_float   = 
-local numeral = (base16_numeral + base10_numeral)/number
+local base16_integer = "0" * S("xX") * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * ss
+-- local base10_float   = 
+local numeral = (base16_integer + base10_integer) / number
 local OP = "(" * ss
 local CP = ")" * ss
 
