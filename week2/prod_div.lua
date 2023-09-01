@@ -56,7 +56,7 @@ local opGTE = lpeg.C(lpeg.P(">=")) * spaces
 local opGT = lpeg.C(lpeg.P(">")) * spaces
 local opEQ = lpeg.C(lpeg.P("==")) * spaces
 local opNE = lpeg.C(lpeg.P("!=")) * spaces
-local opC = opLTE + opGTE + opLT + opLTE + opEQ + opNE
+local opCMP = opLTE + opGTE + opLT + opLTE + opEQ + opNE
 local OP = "(" * spaces
 local CP = ")" * spaces
 local minus = lpeg.C(lpeg.P("-"))
@@ -73,7 +73,7 @@ local grammar = lpeg.P{ "compare",
 	factor = folded((minus^-1)*numeral + (minus^-1)*(OP * compare * CP), unary),
 	power = folded(term * (opE * term)^-1,foldBin),
 	expr = folded(power * ( opA * power)^0,foldBin),
-	compare = folded(expr * (opC * expr)^-1,foldBin)
+	compare = folded(expr * (opCMP * expr)^-1,foldBin)
 } * -1
 
 local function parse(input)
