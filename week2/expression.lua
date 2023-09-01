@@ -1,6 +1,7 @@
 local M = {}
 
 local lpeg = require "lpeg"
+local pt = require "pt"
 local P,S,R,C,Ct,V = lpeg.P, lpeg.S, lpeg.R, lpeg.C, lpeg.Ct, lpeg.V
 
 local function number(num)
@@ -55,10 +56,10 @@ local opNE  = C(P"!=" ) *ss
 local opUM  = C(P"-"  )
 local opCM  = opLE + opLT + opGE + opGT + opEQ + opNE
 
-local base10_integer = R("09")^1 / tonumber * ss
-local base16_integer = "0" * S("xX") * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * ss
--- local base10_float   = 
-local numeral = (base16_integer + base10_integer) / number
+local base10_integer = R"09"^1 / tonumber * ss
+local base16_integer = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * ss
+local base10_float   = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * ss
+local numeral = (base10_float + base16_integer + base10_integer) / number
 local OP = "(" * ss
 local CP = ")" * ss
 
@@ -135,9 +136,19 @@ local function codeExpr(state, ast)
 end
 
 function M.compile(ast)
+    print("--------------------")
+    print(pt.pt(ast))
     local state = { code = {} }
     codeExpr(state, ast)
     return state.code
+end
+
+local function compare(expr)
+    if expr then
+        return 1
+    else 
+        return 0
+    end
 end
 
 local machine_ops = {
@@ -147,12 +158,12 @@ local machine_ops = {
     div = function (x,y) return x/y end,
     exp = function (x,y) return x^y end,
     rem = function (x,y) return x%y end,
-    lt  = function (x,y) if x<y  then return 1 else return 0 end end,
-    lte = function (x,y) if x<=y then return 1 else return 0 end end,
-    gt  = function (x,y) if x>y  then return 1 else return 0 end end,
-    gte = function (x,y) if x>=y then return 1 else return 0 end end,
-    eq  = function (x,y) if x==y then return 1 else return 0 end end,
-    ne  = function (x,y) if x~=y then return 1 else return 0 end end,
+    lt  = function (x,y) return compare(x<y)  end,
+    lte = function (x,y) return compare(x<=y) end,
+    gt  = function (x,y) return compare(x>y)  end,
+    gte = function (x,y) return compare(x>=y) end,
+    eq  = function (x,y) return compare(x==y) end,
+    ne  = function (x,y) return compare(x~=y) end
 }
 
 function M.run(code, stack) 
