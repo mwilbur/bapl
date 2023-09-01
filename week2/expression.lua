@@ -40,26 +40,24 @@ local function binary (lst)
     return tree
 end
 
-local function collectAndApply(p,f) 
-    return Ct(p) / f
-end
 
 local ss = S(" \r\n")^0
 
-local opEX  = C(S"^")   *ss
-local opAD  = C(S"+-")  *ss
+local opEX  = C(S"^"  ) *ss
+local opAD  = C(S"+-" ) *ss
 local opML  = C(S"*/%") *ss
-local opLE  = C(P"<=")  *ss
-local opLT  = C(P"<")   *ss
-local opGE  = C(P">=")  *ss
-local opGT  = C(P">")   *ss
-local opEQ  = C(P"==")  *ss
-local opNE  = C(P"!=")  *ss
-local opUM  = C(P("-"))
+local opLE  = C(P"<=" ) *ss
+local opLT  = C(P"<"  ) *ss
+local opGE  = C(P">=" ) *ss
+local opGT  = C(P">"  ) *ss
+local opEQ  = C(P"==" ) *ss
+local opNE  = C(P"!=" ) *ss
+local opUM  = C(P"-"  )
 local opCM  = opLE + opLT + opGE + opGT + opEQ + opNE
 
-local base10_numeral = R("09")^1 / tonumber * ss
-local base16_numeral = "0" * S("xX") * (R("09","af","AF")^1 / function(x) return tonumber(x,16) end) * ss
+local base10_integer = R("09")^1 / tonumber * ss
+local base16_integer = "0" * S("xX") * (R("09","af","AF")^1 / function(x) return tonumber(x,16) end) * ss
+local base10_float   = 
 local numeral = (base16_numeral + base10_numeral)/number
 local OP = "(" * ss
 local CP = ")" * ss
@@ -69,6 +67,8 @@ local term      = V"term"
 local power     = V"power"
 local expr      = V"expr"
 local compare   = V"compare"
+
+local function collectAndApply(p,f) return Ct(p) / f end
 
 local grammar = P{ "compare",
     term    = collectAndApply( 
@@ -98,15 +98,15 @@ local function addCode(state, opcode)
 end
 
 local binops = {
-    ["+"] = "add", 
-    ["-"] = "sub", 
-    ["*"] = "mul", 
-    ["/"] = "div",
-    ["^"] = "exp",
-    ["%"] = "rem",
-    ["<"] = "lt",
+    ["+"]  = "add", 
+    ["-"]  = "sub", 
+    ["*"]  = "mul", 
+    ["/"]  = "div",
+    ["^"]  = "exp",
+    ["%"]  = "rem",
+    ["<"]  = "lt",
     ["<="] = "le",
-    [">"] = "gt",
+    [">"]  = "gt",
     [">="] = "ge",
     ["=="] = "eq",
     ["!="] = "ne",
@@ -147,12 +147,12 @@ local machine_ops = {
     div = function (x,y) return x/y end,
     exp = function (x,y) return x^y end,
     rem = function (x,y) return x%y end,
-    lt = function (x,y) if x<y then return 1 else return 0 end end,
+    lt  = function (x,y) if x<y  then return 1 else return 0 end end,
     lte = function (x,y) if x<=y then return 1 else return 0 end end,
-    gt = function (x,y) if x>y then return 1 else return 0 end end,
+    gt  = function (x,y) if x>y  then return 1 else return 0 end end,
     gte = function (x,y) if x>=y then return 1 else return 0 end end,
-    eq = function (x,y) if x==y then return 1 else return 0 end end,
-    ne = function (x,y) if x~=y then return 1 else return 0 end end,
+    eq  = function (x,y) if x==y then return 1 else return 0 end end,
+    ne  = function (x,y) if x~=y then return 1 else return 0 end end,
 }
 
 function M.run(code, stack) 
