@@ -84,9 +84,9 @@ local grammar = P{ "compare",
                     power*(opAD*power)^0,                   
                     binary),
     compare = collectAndApply( 
-                    expr * (opCM * expr)^-1,                     
+                    expr*(opCM*expr)^-1,                     
                     binary)
-} * -1
+}*-1
 
 function M.parse(input)
     return grammar:match(input)
