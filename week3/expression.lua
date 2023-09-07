@@ -121,7 +121,7 @@ local grammar = P{ "statements",
                     identifier*assign*expr, 
                     assignmentAst),
     statements  = collectAndApply(
-                    SC + statement*(SC*statements)^-1,
+                    SC + statement*(SC*statements^-1)^-1,
                     statementsAst)
 }*-1
 
