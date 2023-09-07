@@ -50,7 +50,7 @@ local function assignmentAst(assignment)
 end
 
 local function statementsAst(statements)
-    if statements[1]== niil and statements[2]==nil then
+    if statements[1]== nil and statements[2]==nil then
         return {}
     elseif statements[2]==nil then
         return statements[1]
@@ -77,7 +77,7 @@ local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
 local identifier = C(P"_"^0*alpha*(alphanum+"'")^0) *ss
 
-local base10_integer = R"09"^1 / tonumber * ss
+local base10_integer = P"-"^-1*R"09"^1 / tonumber * ss
 local base16_integer = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * ss
 local base10_float   = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * ss
 local numeral = (base10_float + base16_integer + base10_integer) / numberAst
@@ -102,7 +102,7 @@ local function collectAndApply(p,f) return Ct(p) / f end
 
 local grammar = P{ "statements",
     factor      = collectAndApply( 
-                    opUM^-1*numeral + opUM^-1*(OP*expr*CP) + opUM^-1*variable,
+                    numeral + opUM*numeral + opUM^-1*(OP*expr*CP) + opUM^-1*variable,
                     unaryAst),
     term        = collectAndApply( 
                     factor*(opML*factor)^0,
