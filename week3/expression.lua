@@ -59,6 +59,28 @@ local function statementsAst(statements)
     end
 end
 
+local function returnAst(retExpr) 
+    return {tag = "ret", value=retExpr[1]}
+end
+
+local function outAst(outExpr) 
+    return {tag = "out", value=outExpr[1]}
+end
+
+local function decodeVar(state, id)
+    return state.vars[id]
+end
+
+local function declareVar(state,id)
+    local num = decodeVar(state,id)
+    if not num then
+        num = state.nvars + 1
+        state.nvars = num
+        state.vars[id] = num
+    end
+    return num
+end
+
 local ss = S(" \r\n")^0
 
 local opEX  = C(S"^"  ) *ss
@@ -77,11 +99,13 @@ local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
 local identifier = C(P"_"^0*alpha*(alphanum+"'")^0) *ss
 
-local base10_integer = P"-"^-1*R"09"^1 / tonumber * ss
-local base16_integer = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * ss
-local base10_float   = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * ss
-local numeral = (base10_float + base16_integer + base10_integer) / numberAst
-local variable = identifier / variableAst 
+local base10_integer    = P"-"^-1*R"09"^1 / tonumber * ss
+local base16_integer    = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * ss
+local base10_float      = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * ss
+local numeral           = (base10_float + base16_integer + base10_integer) / numberAst
+local variable          = identifier / variableAst 
+local ret               = P"return" * ss
+local out               = P"@" * ss 
 local OP = "(" * ss
 local CP = ")" * ss
 local OB = "{" * ss
@@ -117,9 +141,16 @@ local grammar = P{ "statements",
                     sums*(opCM*sums)^-1,                     
                     binaryAst),
     block       = OB*statements*SC^-1*CB + OB*CB,
-    statement   = block + collectAndApply(
-                    identifier*assign*expr, 
-                    assignmentAst),
+    statement   = block + 
+                  collectAndApply(
+                      identifier*assign*expr, 
+                      assignmentAst) +
+                  collectAndApply(
+                      ret*expr,
+                      returnAst) +
+                  collectAndApply(
+                      out*expr,
+                      outAst),
     statements  = collectAndApply(
                     SC + statement*(SC*statements^-1)^-1,
                     statementsAst)
@@ -158,7 +189,9 @@ local function codeExpr(state, ast)
         addCode(state, ast.value)
     elseif ast.tag == "variable" then
         addCode(state, "load")
-        addCode(state, ast.value)
+        local var = decodeVar(state,ast.value)
+        if not var then error("Undeclared variable "..ast.value) end
+        addCode(state, var)
     elseif ast.tag == "unary" then
         codeExpr(state, ast.value)
         addCode(state, unaryops[ast.op])
@@ -177,16 +210,25 @@ local function codeStat(state, ast)
     if ast.tag == "assignment" then
         codeExpr(state, ast.value)
         addCode(state, "store")
-        addCode(state, ast.name)
+        addCode(state, declareVar(state,ast.name))
     elseif ast.tag == "statements" then
         codeStat(state, ast.s1)
         codeStat(state, ast.s2)
+    elseif ast.tag == "out" then
+        codeExpr(state, ast.value)
+        addCode(state, "out")
+    elseif ast.tag == "ret" then
+        codeExpr(state, ast.value)
+        addCode(state, "ret")
     end
 end
 
 function M.compile(ast)
-    local state = { code = {} }
+    local state = { code = {}, vars = {}, nvars = 0 }
     codeStat(state, ast)
+    addCode(state, "push")
+    addCode(state, 0)
+    addCode(state, "ret")
     return state.code
 end
 
@@ -213,13 +255,19 @@ local machine_ops = {
     ne  = function (x,y) return compare(x~=y) end
 }
 
-function M.run(code, store, stack,tracefunc) 
+function M.run(code,store,io,stack,tracefunc) 
     local tracefunc = tracefunc or function(...) end 
     local pc = 1
     local top = 0
     tracefunc(pc,top,code,stack,store)
-    while pc <= #code do
-        if code[pc]=="push" then
+    while true do
+        if code[pc] == "ret" then
+            break
+        elseif code[pc] == "out" then
+            io.out(stack[top])
+            top = top - 1
+            stack[top+1] = nil
+        elseif code[pc]=="push" then
             pc = pc + 1
             top = top + 1
             stack[top] = code[pc]

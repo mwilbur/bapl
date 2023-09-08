@@ -14,6 +14,9 @@ do
 	--store = {k1 = 1, k2 = 2, k10 = 10, __q=15, ["k'"]=32}
     store = {}
 	stack = {}
+    vmio = {
+        out = function(v) io.write(">>>>>>",v,"\n") end
+    }
 	local function mytrace(pc,tos,code,stack,store) 
 		print(string.format("====[pc=%d]==[tos=%d]====",pc,tos))
 		print("code: ")
@@ -23,10 +26,11 @@ do
 		print("store: ")
 		print(pt.pt(store))
 	end
-		
-	run(code, store, stack, mytrace)
+    --mytrace = function(...) t={...} print(pt.pt(t[#t-1])) end
+	mytrace = function(...) end	
+	run(code, store, vmio, stack, mytrace)
 	--run(code, store, stack)
-	print(store.result)
+    print(pt.pt(stack))
     --]]
 end
 --[[
