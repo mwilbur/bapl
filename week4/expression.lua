@@ -105,8 +105,14 @@ function updateCharInfo(p)
 end
 
 
-function getMatchedSoFar(src)
+function getTextMatchedSoFar(src)
     return string.sub(src,1,sourceInfo.characterCount-1)
+end
+
+function getTextAfterError(src)
+    s = string.sub(src,sourceInfo.characterCount,-1)
+    e = string.find(s,"\n")
+    return string.sub(s,1,e-1)
 end
 
 function getErrorLineNumber()
@@ -206,9 +212,12 @@ end
 function M.parse(input)
     res = grammar:match(input)
     if not res then 
-        print("Matched before error:")
+        print("Syntax error detected at '|' mark:")
         print("---")
-        print(getMatchedSoFar(input))
+        io.write(getTextMatchedSoFar(input))
+        io.write("|")
+        io.write(getTextAfterError(input))
+        io.write("\n")
         print("---")
         print("Number of characters before error: "..tostring(sourceInfo.characterCount-1))
         print("Error line number: "..tostring(getErrorLineNumber()))
