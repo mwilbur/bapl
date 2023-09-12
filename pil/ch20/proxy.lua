@@ -11,13 +11,13 @@ function make_tracker()
         end,
 
         __pairs = function(t)
-            return function(_,k)
-                local nextkey, nextvalue = next(t.___,v)
+            return function(_t,k)
+                local nextkey, nextvalue = next(_t,k)
                 if nextkey ~= nil then
                     print("*traversing element " .. tostring(nextkey))
                 end
                 return nextkey, nextvalue
-            end
+            end, t.___
         end,
 
         __len = function (t) return #t.___ end
