@@ -92,7 +92,7 @@ local opGE  = C(P">=" ) *ss
 local opGT  = C(P">"  ) *ss
 local opEQ  = C(P"==" ) *ss
 local opNE  = C(P"!=" ) *ss
-local opUM  = C(P"-"  )
+local opUN  = C(S"+-~"  )
 local opCM  = opLE + opLT + opGE + opGT + opEQ + opNE
 
 local alpha = R("az","AZ")
@@ -126,7 +126,7 @@ local function collectAndApply(p,f) return Ct(p) / f end
 
 local grammar = P{ "statements",
     factor      = collectAndApply( 
-                    numeral + opUM*numeral + opUM^-1*(OP*expr*CP) + opUM^-1*variable,
+                    numeral + opUN*factor + opUN^-1*(OP*expr*CP) + opUN^-1*variable,
                     unaryAst),
     term        = collectAndApply( 
                     factor*(opML*factor)^0,
@@ -141,7 +141,7 @@ local grammar = P{ "statements",
                     sums*(opCM*sums)^-1,                     
                     binaryAst),
     block       = OB*statements*SC^-1*CB + OB*CB,
-    statement   = block + 
+    statement   = SC + block + 
                   collectAndApply(
                       identifier*assign*expr, 
                       assignmentAst) +
@@ -152,7 +152,7 @@ local grammar = P{ "statements",
                       out*expr,
                       outAst),
     statements  = collectAndApply(
-                    SC + statement*(SC*statements^-1)^-1,
+                    statement*(SC*statements^-1)^-1,
                     statementsAst)
 }*-1
 
@@ -181,6 +181,7 @@ local binops = {
 
 local unaryops = {
     ["-"] = "neg", 
+    ["~"] = "inv", 
 }
 
 local function codeExpr(state, ast) 
@@ -284,6 +285,8 @@ function M.run(code,store,io,stack,tracefunc)
             stack[top+1] = nil
         elseif code[pc]=="neg" then
             stack[top] = -1*stack[top]
+        elseif code[pc]=="inv" then
+            stack[top] = ~stack[top]
         else 
             f = machine_ops[code[pc]] or error("unkown op")
             result = f(stack[top-1],stack[top])

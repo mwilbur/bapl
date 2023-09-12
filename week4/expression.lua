@@ -86,40 +86,45 @@ local function declareVar(state,id)
 end
 
 local sourceInfo = {
-    data = {
-        lineCount = 0,
-        charactersPerLine = {},
-        characterCount = 0,
-        fullLineCharacterCount = 0,
-    }
+    lineCount = 0,
+    charactersPerLine = {},
+    characterCount = 0,
+    fullLineCharacterCount = 0,
 }
 
-function sourceInfo:updateLineInfo(src,p) 
-    self.data.lineCount = self.data.lineCount + 1 
-    lastCount = self.data.charactersPerLine[self.data.lineCount-1] or 0
+function updateLineInfo(src,p) 
+    sourceInfo.lineCount = sourceInfo.lineCount + 1 
+    lastCount = sourceInfo.charactersPerLine[sourceInfo.lineCount-1] or 0
     newCount = p - lastCount - 1
-    self.data.charactersPerLine[self.data.lineCount] = newCount
-    self.data.fullLineCharacterCount = self.data.fullLineCharacterCount + lastCount
+    sourceInfo.charactersPerLine[sourceInfo.lineCount] = newCount
+    sourceInfo.fullLineCharacterCount = sourceInfo.fullLineCharacterCount + newCount
 end
 
-function sourceInfo:updateCharInfo(p)
-    self.data.characterCount = math.max(self.data.characterCount,p)
+function updateCharInfo(p)
+    sourceInfo.characterCount = math.max(sourceInfo.characterCount,p)
 end
 
-function sourceInfo:lastLineSpan()
-    return self.data.fullLineCharacterCount+1, self.data.characterCount-1
+
+function getMatchedSoFar(src)
+    return string.sub(src,1,sourceInfo.characterCount-1)
 end
---[[
-function sourceInfo:getErrorLocation()
-    sourceInfo.lineCount, 
-    sourceInfo.charactersPerLine[sourceInfo.lineCount]))
---]]
-local updateLineCount = P(function(src,p) sourceInfo:updateLineInfo(src,p) return true end)
-local updateCharacterCount = P(function(_,p) sourceInfo:updateCharInfo(p) return true end)
+
+function getErrorLineNumber()
+    return sourceInfo.lineCount + 1
+end
+
+function getErrorLine(src)
+    s = string.sub(src,sourceInfo.fullLineCharacterCount+1,-1)
+    e = string.find(s,"\n")
+    return string.sub(s,1,e-1)
+end
+
+local updateLineCount = P(function(src,p) updateLineInfo(src,p) return true end)
+local updateCharacterCount = P(function(_,p) updateCharInfo(p) return true end)
 
 local ss = ((S(" \t") + S("\n")*updateLineCount)^0*updateCharacterCount)
 
-local opEX  = C(S"^"  ) *ss
+local opEX  = C(S"^") *ss
 local opAD  = C(S"+-" ) *ss
 local opML  = C(S"*/%") *ss
 local opLE  = C(P"<=" ) *ss
@@ -195,27 +200,20 @@ local grammar = P{ "statements",
 
 grammar = ss*grammar*-1
 
+function countLines(str)
+end
 
 function M.parse(input)
     res = grammar:match(input)
     if not res then 
-        --[[
-        io.stderr:write(string.format("Error on line %d, character %d\n", 
-                        sourceInfo.lineCount, 
-                        sourceInfo.charactersPerLine[sourceInfo.lineCount]))
-        --]]
-        print(sourceInfo.data.characterCount-1)
-        lines = 1
-        s=string.sub(input,1,sourceInfo.data.characterCount-1)
+        print("Matched before error:")
         print("---")
-        print(s)
+        print(getMatchedSoFar(input))
         print("---")
-        for _ in string.gmatch(s,"\n") do
-            lines = lines+1
-        end
-        print(lines)
-        print(pt.pt(sourceInfo.data))
-        --print(string.sub(input,sourceInfo:lastLineSpan()))
+        print("Number of characters before error: "..tostring(sourceInfo.characterCount-1))
+        print("Error line number: "..tostring(getErrorLineNumber()))
+        print("Error line: "..getErrorLine(input))
+        --print(pt.pt(sourceInfo))
         os.exit(1)
     end
     return res
