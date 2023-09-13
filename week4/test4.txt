@@ -2,5 +2,14 @@ a=1;
 x=3*a;
 y=5*(x - 1) +2; # foo bar lalala
 
-#{
-}#
+#{ dfda
+fdaf
+  dafd }#
+
+{ z=1;
+b=3;
+    q= -(3*z +b -a)^y };
+
+{z=a<3;
+    }
+

@@ -4,7 +4,7 @@ local lpeg = require "lpeg"
 local pt = require "pt"
 local P,S,R,C,Ct,V = lpeg.P, lpeg.S, lpeg.R, lpeg.C, lpeg.Ct, lpeg.V
 
-function M.I(msg)
+function I(msg)
     return P(function (_,p) io.write(msg,"\n") return true end)
 end
 
@@ -130,37 +130,27 @@ local updateCharacterCount = P(function(_,p) updateCharInfo(p) return true end)
 
 local comment = "#"*(P(1)-"\n")^0
 local block_comment = P("#{")*((1-P("}#"))^0)*P("}#")
-local ss = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount)
+local spaces = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount)
 
-local opEX  = C(S"^") *ss
-local opAD  = C(S"+-" ) *ss
-local opML  = C(S"*/%") *ss
-local opLE  = C(P"<=" ) *ss
-local opLT  = C(P"<"  ) *ss
-local opGE  = C(P">=" ) *ss
-local opGT  = C(P">"  ) *ss
-local opEQ  = C(P"==" ) *ss
-local opNE  = C(P"!=" ) *ss
-local opUM  = C(P"-"  )
-local opCM  = opLE + opLT + opGE + opGT + opEQ + opNE
+local function T(t)
+    return P(t)*spaces
+end
+
+local opAD  = C(S"+-" ) *spaces
+local opML  = C(S"*/%") *spaces
+local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
 
 local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
-local identifier = C(P"_"^0*alpha*(alphanum+"'")^0)*ss
+local identifier = C(P"_"^0*alpha*(alphanum+"'")^0)*spaces
 
-local base10_integer    = P"-"^-1*R"09"^1 / tonumber * ss
-local base16_integer    = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * ss
-local base10_float      = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * ss
+local base10_integer    = P"-"^-1*R"09"^1 / tonumber * spaces
+local base16_integer    = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * spaces
+local base10_float      = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * spaces
 local numeral           = (base10_float + base16_integer + base10_integer) / numberAst
 local variable          = identifier / variableAst 
-local ret               = P"return" * ss
-local out               = P"@" * ss 
-local OP = "(" * ss
-local CP = ")" * ss
-local OB = "{" * ss
-local CB = "}" * ss
-local SC = P(";") * ss
-local assign = "=" * ss
+local ret               = P"return" * spaces
+local out               = P"@" * spaces 
 
 local factor        = V"factor"
 local term          = V"term"
@@ -176,24 +166,24 @@ local function collectAndApply(p,f) return Ct(p) / f end
 
 local grammar = P{ "statements",
     factor      = collectAndApply( 
-                    numeral + opUM*numeral + opUM^-1*(OP*expr*CP) + opUM^-1*variable,
+                    numeral + T("-")*numeral + T("-")^-1*(T("(")*expr*T(")")) + T("-")^-1*variable,
                     unaryAst),
     term        = collectAndApply( 
                     factor*(opML*factor)^0,
                     binaryAst),
     power       = collectAndApply( 
-                    term*(opEX*term)^-1,
+                    term*(T("^")*term)^-1,
                     binaryAst),
     sums        = collectAndApply( 
                     power*(opAD*power)^0,                   
                     binaryAst),
     expr        = collectAndApply( 
-                    sums*(opCM*sums)^-1,                     
+                    sums*(T("<")*sums)^-1,                     
                     binaryAst),
-    block       = OB*statements*SC^-1*CB + OB*CB,
+    block       = T("{")*statements*T(";")^-1*T("}") + T("{")*T("}"),
     statement   = block + 
                   collectAndApply(
-                      identifier*assign*expr, 
+                      identifier*T("=")*expr, 
                       assignmentAst) +
                   collectAndApply(
                       ret*expr,
@@ -202,18 +192,17 @@ local grammar = P{ "statements",
                       out*expr,
                       outAst),
     statements  = collectAndApply(
-                    statement*(SC*statements^-1)^-1,
+                    I"s"*statement*(T(";")*statements^-1)^-1,
                     statementsAst),
 }
 
-grammar = ss*grammar*-1
+grammar = spaces*grammar*-1
 
 function countLines(str)
 end
 
 function M.parse(input)
     res = grammar:match(input)
-    --[[
     if not res then 
         print("Syntax error detected at '|' mark:")
         print("---")
@@ -227,7 +216,6 @@ function M.parse(input)
         print("Error line: "..getErrorLine(input))
         os.exit(1)
     end
-    --]]
     return res
 end
 local function addCode(state, opcode)
