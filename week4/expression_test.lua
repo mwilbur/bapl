@@ -8,7 +8,7 @@ do
     --local input = "a =  1 "
     local ast = expr.parse(input)
     print(pt.pt(ast))
-    --[[
+    ---[[
     local code = compile(ast)
     print(pt.pt(code))
     --store = {k1 = 1, k2 = 2, k10 = 10, __q=15, ["k'"]=32}

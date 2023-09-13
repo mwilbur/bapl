@@ -38,6 +38,7 @@ end
 -- tree4 = { tag = "binop", e1 = tree2, e2 = n3 }
 
 local function binaryAst(lst)
+    print(pt.pt(lst))
     local tree = lst[1]
     for i=2,#lst,2 do
         tree = { tag = "binary", e1 = tree, op = lst[i], e2 = lst[i+1] }
@@ -128,9 +129,9 @@ end
 local updateLineCount = P(function(src,p) updateLineInfo(src,p) return true end)
 local updateCharacterCount = P(function(_,p) updateCharInfo(p) return true end)
 
-local comment = "#"*(P(1)-"\n")^0
-local block_comment = P("#{")*((1-P("}#"))^0)*P("}#")
-local spaces = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount)
+
+local block_comment = V"block_comment"
+local spaces = V"spaces"
 
 local function T(t)
     return P(t)*spaces
@@ -143,6 +144,7 @@ local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
 local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
 local identifier = C(P"_"^0*alpha*(alphanum+"'")^0)*spaces
+local comment = "#"*(P(1)-"\n")^0
 
 local base10_integer    = P"-"^-1*R"09"^1 / tonumber * spaces
 local base16_integer    = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * spaces
@@ -164,42 +166,53 @@ local test          = V"test"
 
 local function collectAndApply(p,f) return Ct(p) / f end
 
-local grammar = P{ "statements",
-    factor      = collectAndApply( 
-                    numeral + T("-")*numeral + T("-")^-1*(T("(")*expr*T(")")) + T("-")^-1*variable,
-                    unaryAst),
-    term        = collectAndApply( 
-                    factor*(opML*factor)^0,
-                    binaryAst),
-    power       = collectAndApply( 
-                    term*(T("^")*term)^-1,
-                    binaryAst),
-    sums        = collectAndApply( 
-                    power*(opAD*power)^0,                   
-                    binaryAst),
-    expr        = collectAndApply( 
-                    sums*(T("<")*sums)^-1,                     
-                    binaryAst),
-    block       = T("{")*statements*T(";")^-1*T("}") + T("{")*T("}"),
-    statement   = block + 
-                  collectAndApply(
-                      identifier*T("=")*expr, 
-                      assignmentAst) +
-                  collectAndApply(
-                      ret*expr,
-                      returnAst) +
-                  collectAndApply(
-                      out*expr,
-                      outAst),
-    statements  = collectAndApply(
-                    I"s"*statement*(T(";")*statements^-1)^-1,
-                    statementsAst),
+local grammar = P{ "prog",
+    spaces          = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount),
+
+    block_comment   = P("#{")*((block_comment + (1-P("}#")))^0)*P("}#"),
+
+    factor          = collectAndApply( 
+                        numeral + 
+                            T("-")*numeral + 
+                            T("-")^-1*(T("(")*expr*T(")")) + 
+                            T("-")^-1*variable,
+                        unaryAst),
+
+    term            = collectAndApply( 
+                        factor*(opML*factor)^0,
+                        binaryAst),
+
+    power           = collectAndApply( 
+                        term*(C(T("^"))*term)^-1,
+                        binaryAst),
+
+    sums            = collectAndApply( 
+                        power*(opAD*power)^0,                   
+                        binaryAst),
+
+    expr            = collectAndApply( 
+                        sums*(opCM*sums)^-1,                     
+                        binaryAst),
+
+    block           = T("{")*statements*T(";")^-1*T("}") + T("{")*T("}"),
+
+    statement       = block + 
+                      collectAndApply(
+                          identifier*T("=")*expr, 
+                          assignmentAst) +
+                      collectAndApply(
+                          ret*expr,
+                          returnAst) +
+                      collectAndApply(
+                          out*expr,
+                          outAst),
+
+    statements      = collectAndApply(
+                        statement*(T(";")*statements^-1)^-1,
+                        statementsAst),
+
+    prog            =   spaces*statements*-1
 }
-
-grammar = spaces*grammar*-1
-
-function countLines(str)
-end
 
 function M.parse(input)
     res = grammar:match(input)

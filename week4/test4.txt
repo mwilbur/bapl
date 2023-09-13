@@ -2,8 +2,7 @@ a=1;
 x=3*a;
 y=5*(x - 1) +2; # foo bar lalala
 
-#{ dfda
-fdaf
+#{fdaf
   dafd }#
 
 { z=1;
@@ -13,3 +12,9 @@ b=3;
 {z=a<3;
     }
 
+#{
+#{ #{ 
+    dfa f
+    }# 
+    }#
+}#
