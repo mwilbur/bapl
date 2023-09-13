@@ -1,12 +1,12 @@
 lpeg = require "lpeg"
+pt = require "pt"
+P,S,R,C,Ct,V = lpeg.P, lpeg.S, lpeg.R, lpeg.C, lpeg.Ct, lpeg.V
 
-ss = lpeg.S(" \t\n")^0
 
-v=lpeg.R("az")^1*ss
-a=lpeg.P("=")*ss
-n=lpeg.R("09")*ss
-sc=lpeg.P(";")*ss
-p=v*a*n*sc*v*a*n
-print(p:match(io.read("a")))
+block_comment = P("#{")*((1-P("}#"))^0)*P("}#")
+
+input = io.read("a")
+print(#input)
+print(block_comment:match(input))
 
 

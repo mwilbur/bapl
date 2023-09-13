@@ -5,7 +5,7 @@ local pt = require "pt"
 local P,S,R,C,Ct,V = lpeg.P, lpeg.S, lpeg.R, lpeg.C, lpeg.Ct, lpeg.V
 
 function M.I(msg)
-    return P(function (_,p) print(msg.." "..tostring(p)) return true end)
+    return P(function (_,p) io.write(msg,"\n") return true end)
 end
 
 local function numberAst(num)
@@ -128,7 +128,9 @@ end
 local updateLineCount = P(function(src,p) updateLineInfo(src,p) return true end)
 local updateCharacterCount = P(function(_,p) updateCharInfo(p) return true end)
 
-local ss = ((S(" \t") + S("\n")*updateLineCount)^0*updateCharacterCount)
+local comment = "#"*(P(1)-"\n")^0
+local block_comment = P("#{")*((1-P("}#"))^0)*P("}#")
+local ss = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount)
 
 local opEX  = C(S"^") *ss
 local opAD  = C(S"+-" ) *ss
@@ -211,6 +213,7 @@ end
 
 function M.parse(input)
     res = grammar:match(input)
+    --[[
     if not res then 
         print("Syntax error detected at '|' mark:")
         print("---")
@@ -222,9 +225,9 @@ function M.parse(input)
         print("Number of characters before error: "..tostring(sourceInfo.characterCount-1))
         print("Error line number: "..tostring(getErrorLineNumber()))
         print("Error line: "..getErrorLine(input))
-        --print(pt.pt(sourceInfo))
         os.exit(1)
     end
+    --]]
     return res
 end
 local function addCode(state, opcode)

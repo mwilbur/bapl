@@ -31,6 +31,7 @@ do
     run(code, store, vmio, stack, mytrace)
     --run(code, store, stack)
     print(pt.pt(stack))
+    print(pt.pt(store))
     --]]
 end
 --[[
