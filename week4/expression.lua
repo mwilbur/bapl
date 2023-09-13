@@ -72,20 +72,6 @@ local function outAst(outExpr)
     return {tag = "out", value=outExpr[1]}
 end
 
-local function decodeVar(state, id)
-    return state.vars[id]
-end
-
-local function declareVar(state,id)
-    local num = decodeVar(state,id)
-    if not num then
-        num = state.nvars + 1
-        state.nvars = num
-        state.vars[id] = num
-    end
-    return num
-end
-
 local sourceInfo = {
     lineCount = 0,
     charactersPerLine = {},
@@ -133,17 +119,20 @@ local updateCharacterCount = P(function(_,p) updateCharInfo(p) return true end)
 local block_comment = V"block_comment"
 local spaces = V"spaces"
 
-local function T(t)
-    return P(t)*spaces
+
+local function reservedWords() 
+    local reservedWords = {"return","if","for","while"}
+    local excluded = P(false)
+    for i=1,#reservedWords do
+        excluded = excluded + reservedWords[i]
+    end
+    return excluded
 end
 
-local opAD  = C(S"+-" ) *spaces
-local opML  = C(S"*/%") *spaces
-local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
 
 local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
-local identifier = C(P"_"^0*alpha*(alphanum+"'")^0)*spaces
+local identifier = C(P"_"^0*alpha*(alphanum+"'")^0 - reservedWords())*spaces
 local comment = "#"*(P(1)-"\n")^0
 
 local base10_integer    = P"-"^-1*R"09"^1 / tonumber * spaces
@@ -151,7 +140,6 @@ local base16_integer    = "0" * S"xX" * R("09","af","AF")^1 / function(x) return
 local base10_float      = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * spaces
 local numeral           = (base10_float + base16_integer + base10_integer) / numberAst
 local variable          = identifier / variableAst 
-local ret               = P"return" * spaces
 local out               = P"@" * spaces 
 
 local factor        = V"factor"
@@ -163,6 +151,19 @@ local statement     = V"statement"
 local statements    = V"statements"
 local block         = V"block"
 local test          = V"test"
+
+local function T(t)
+    return P(t)*spaces
+end
+
+local function Rw(t) 
+    return P(t)*-alphanum*spaces
+end
+
+local opAD  = C(S"+-" ) *spaces
+local opML  = C(S"*/%") *spaces
+local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
+
 
 local function collectAndApply(p,f) return Ct(p) / f end
 
@@ -201,7 +202,7 @@ local grammar = P{ "prog",
                           identifier*T("=")*expr, 
                           assignmentAst) +
                       collectAndApply(
-                          ret*expr,
+                          Rw("return")*expr,
                           returnAst) +
                       collectAndApply(
                           out*expr,
@@ -231,10 +232,6 @@ function M.parse(input)
     end
     return res
 end
-local function addCode(state, opcode)
-    local code = state.code
-    code[#code+1] = opcode
-end
 
 local binops = {
     ["+"]  = "add", 
@@ -255,22 +252,43 @@ local unaryops = {
     ["-"] = "neg", 
 }
 
-local function codeExpr(state, ast) 
+local Compiler = { code = {}, vars = {}, nvars = 0 }
+
+function Compiler:addCode(opcode)
+    local code = self.code
+    code[#code+1] = opcode
+end
+
+function Compiler:decodeVar(id)
+    return self.vars[id]
+end
+
+function Compiler:declareVar(id)
+    local num = self:decodeVar(id)
+    if not num then
+        num = self.nvars + 1
+        self.nvars = num
+        self.vars[id] = num
+    end
+    return num
+end
+
+function Compiler:codeExpr(ast) 
     if ast.tag == "number" then
-        addCode(state, "push")
-        addCode(state, ast.value)
+        self:addCode("push")
+        self:addCode(ast.value)
     elseif ast.tag == "variable" then
-        addCode(state, "load")
-        local var = decodeVar(state,ast.value)
+        self:addCode("load")
+        local var = self:decodeVar(ast.value)
         if not var then error("Undeclared variable "..ast.value) end
-        addCode(state, var)
+        self:addCode(var)
     elseif ast.tag == "unary" then
-        codeExpr(state, ast.value)
-        addCode(state, unaryops[ast.op])
+        self:codeExpr(ast.value)
+        self:addCode(unaryops[ast.op])
     elseif ast.tag == "binary" then
-        codeExpr(state, ast.e1)
-        codeExpr(state, ast.e2)
-        addCode(state, binops[ast.op])
+        self:codeExpr(ast.e1)
+        self:codeExpr(ast.e2)
+        self:addCode(binops[ast.op])
     else 
         print(pt.pt(ast))
         print(pt.pt(state))
@@ -278,30 +296,29 @@ local function codeExpr(state, ast)
     end
 end
 
-local function codeStat(state, ast) 
+function Compiler:codeStat(ast) 
     if ast.tag == "assignment" then
-        codeExpr(state, ast.value)
-        addCode(state, "store")
-        addCode(state, declareVar(state,ast.name))
+        self:codeExpr(ast.value)
+        self:addCode("store")
+        self:addCode(self:declareVar(ast.name))
     elseif ast.tag == "statements" then
-        codeStat(state, ast.s1)
-        codeStat(state, ast.s2)
+        self:codeStat(ast.s1)
+        self:codeStat(ast.s2)
     elseif ast.tag == "out" then
-        codeExpr(state, ast.value)
-        addCode(state, "out")
+        self:codeExpr(ast.value)
+        self:addCode("out")
     elseif ast.tag == "ret" then
-        codeExpr(state, ast.value)
-        addCode(state, "ret")
+        self:codeExpr(ast.value)
+        self:addCode("ret")
     end
 end
 
 function M.compile(ast)
-    local state = { code = {}, vars = {}, nvars = 0 }
-    codeStat(state, ast)
-    addCode(state, "push")
-    addCode(state, 0)
-    addCode(state, "ret")
-    return state.code
+    Compiler:codeStat(ast)
+    Compiler:addCode("push")
+    Compiler:addCode(0)
+    Compiler:addCode("ret")
+    return Compiler.code
 end
 
 local function compare(expr)
