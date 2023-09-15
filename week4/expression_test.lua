@@ -1,12 +1,13 @@
 do
-    local expr = require "expression"
+    local parser = require "parser"
+    local compiler = require "compiler"
     local pt = require "pt"
 
-    local parse,compile,run = expr.parse, expr.compile, expr.run
+    local parse,compile,run = parser.parse, compiler.compile, compiler.run
 
     local input = io.read("a")
     --local input = "a =  1 "
-    local ast = expr.parse(input)
+    local ast = parse(input)
     print(pt.pt(ast))
     ---[[
     local code = compile(ast)
