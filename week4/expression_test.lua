@@ -1,9 +1,10 @@
 do
     local parser = require "parser"
     local compiler = require "compiler"
+    local vm = require "vm"
     local pt = require "pt"
 
-    local parse,compile,run = parser.parse, compiler.compile, compiler.run
+    local parse,compile,run = parser.parse, compiler.compile, vm.run
 
     local input = io.read("a")
     --local input = "a =  1 "
