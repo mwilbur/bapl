@@ -1,12 +1,4 @@
-if 6<5 { 
-  a=5 
-} 
-elseif 5<3 {
-  a=9
-} 
-elseif 1==2 {
-  a=13
-} 
-else {
-  a=10
-}
+x=1;
+n=1;
+while n<=3 { x = x * n; n = n + 1 };
+return x

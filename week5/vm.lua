@@ -16,9 +16,9 @@ local machine_ops = {
     exp = function (x,y) return x^y end,
     rem = function (x,y) return x%y end,
     lt  = function (x,y) return compare(x<y)  end,
-    lte = function (x,y) return compare(x<=y) end,
+    le  = function (x,y) return compare(x<=y) end,
     gt  = function (x,y) return compare(x>y)  end,
-    gte = function (x,y) return compare(x>=y) end,
+    ge  = function (x,y) return compare(x>=y) end,
     eq  = function (x,y) return compare(x==y) end,
     ne  = function (x,y) return compare(x~=y) end
 }

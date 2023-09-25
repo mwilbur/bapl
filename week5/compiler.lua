@@ -87,21 +87,31 @@ function Compiler:codeStat(ast)
     elseif ast.tag == "ret" then
         self:codeExpr(ast.value)
         self:addCode("ret")
+    elseif ast.tag == "while1" then
+        local l1 = self:getCurrentLocation()
+        self:codeExpr(ast.cond)
+        self:addCode("jmpz")
+        self:addCode(0)
+        local l2 = self:getCurrentLocation()
+        self:codeStat(ast.block)
+        self:addCode("jmp")
+        self:addCode(l1-self:getCurrentLocation()-1)
+        self:fixupJmp(l2)
     elseif ast.tag == "if" then
         self:codeExpr(ast.cond)
         self:addCode("jmpz")
         self:addCode(0)
-        local jmp = self:getCurrentLocation()
+        local jmpz = self:getCurrentLocation()
         self:codeStat(ast.th)
         if ast.el then
             self:addCode("jmp")
             self:addCode(0)
-            local jmp2 = self:getCurrentLocation()
-            self:fixupJmp(jmp)        
+            local jmp = self:getCurrentLocation()
+            self:fixupJmp(jmpz)        
             self:codeStat(ast.el)
-            self:fixupJmp(jmp2)
-        else
             self:fixupJmp(jmp)
+        else
+            self:fixupJmp(jmpz)
         end
     end
 end

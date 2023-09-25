@@ -220,6 +220,7 @@ local grammar = P{ "prog",
                     conditionalAst),
     
     statement = conditional +
+                collectAndApply(Rw("while")*expr*block, simpleNode("while1","cond","block")) +
                 block +
                 collectAndApply(
                     identifier*T("=")*expr, 
