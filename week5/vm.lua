@@ -29,39 +29,52 @@ function M.run(code,store,io,stack,tracefunc)
     local top = 0
     tracefunc(pc,top,code,stack,store)
     while true do
-        if code[pc] == "ret" then
+        op = code[pc]
+        if op == "ret" then
             break
         elseif code[pc] == "out" then
             io.out(stack[top])
             top = top - 1
             stack[top+1] = nil
-        elseif code[pc]=="push" then
+        elseif op=="push" then
             pc = pc + 1
             top = top + 1
             stack[top] = code[pc]
-        elseif code[pc]=="load" then
+        elseif op=="pop" then
+            stack[top] = nil
+            top = top - 1
+        elseif op=="load" then
             pc = pc + 1
             top = top + 1
             local id = code[pc]
             stack[top] = store[id]
-        elseif code[pc]=="store" then
+        elseif op=="store" then
             pc = pc + 1
             local id = code[pc]
             store[id] = stack[top]
             top = top - 1
             stack[top+1] = nil
-        elseif code[pc]=="neg" then
+        elseif op=="neg" then
             stack[top] = -1*stack[top]
-        elseif code[pc]=="jmp" then
+        elseif op=="jmp" then
             pc=pc+1
             pc= pc + code[pc]
-        elseif code[pc]=="jmpz" then
+        elseif op=="jmpz" or op=="jmpzp" or op=="jmpnzp" then
             pc=pc+1
             local tos = stack[top]
-            if tos==0 then
-                pc=pc + code[pc]
+            if op=="jmpnzp" then
+              if tos~=0 then
+                  pc=pc + code[pc]
+              end
+            else
+              if tos==0 then
+                  pc=pc + code[pc]
+              end
             end
-            top = top - 1
+            if op=="jmpz" then
+              top = top - 1
+            end
+            
         else 
             f = machine_ops[code[pc]] or error("unkown op")
             result = f(stack[top-1],stack[top])

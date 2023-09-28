@@ -119,7 +119,6 @@ local updateCharacterCount = P(function(_,p) updateCharInfo(p) return true end)
 local block_comment = V"block_comment"
 local spaces = V"spaces"
 
-
 local function reservedWords() 
     local reservedWords = {"return","if","for","while"}
     local excluded = P(false)
@@ -128,7 +127,6 @@ local function reservedWords()
     end
     return excluded
 end
-
 
 local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
@@ -160,10 +158,9 @@ local function Rw(t)
     return P(t)*-alphanum*spaces
 end
 
-local opAD  = C(S"+-" ) *spaces
-local opML  = C(S"*/%") *spaces
+local opAD  = C(S"+-" )*spaces
+local opML  = C(S"*/%")*spaces
 local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
-
 
 local function collectAndApply(p,f) return Ct(p) / f end
 

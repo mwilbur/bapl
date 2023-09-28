@@ -63,9 +63,25 @@ function Compiler:codeExpr(ast)
         self:codeExpr(ast.value)
         self:addCode(unaryops[ast.op])
     elseif ast.tag == "binary" then
-        self:codeExpr(ast.e1)
-        self:codeExpr(ast.e2)
-        self:addCode(binops[ast.op])
+        if ast.op == "and" or ast.op == "or" then
+          -- for short circuit evaluation we want the arguments pushed
+          -- on the stack in reverse order
+          self:codeExpr(ast.e2)
+          self:codeExpr(ast.e1)
+          if ast.op == "and" then
+            self:addCode("jmpzp") 
+          elseif ast.op == "or" then
+            self:addCode("jmpnzp")
+          end
+            self:addCode(0)
+            l1=self:getCurrentLocation()
+            self:addCode("pop")
+            self:fixupJmp(l1)
+        else
+          self:codeExpr(ast.e1)
+          self:codeExpr(ast.e2)
+          self:addCode(binops[ast.op])
+        end
     else 
         print(pt.pt(ast))
         print(pt.pt(state))

@@ -170,7 +170,7 @@ local function Rw(t)
     return P(t)*-alphanum*spaces
 end
 
-local opAD  = C(S"+-" ) *spaces
+local opAD  = (C(S"+-" )+C("and")+C("or"))*spaces
 local opML  = C(S"*/%") *spaces
 local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
 
