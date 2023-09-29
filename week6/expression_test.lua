@@ -6,7 +6,7 @@ do
 
     local parse,compile,run = parser.parse, compiler.compile, vm.run
 
-    local input = io.open("test_files/test6.txt"):read("a")
+    local input = io.open("test_files/test9.txt"):read("a")
     --local input = "a =  1 "
     local ast = parse(input)
     print(pt.pt(ast))
@@ -28,11 +28,6 @@ do
         print("store: ")
         print(pt.pt(store))
     end
-    --mytrace = function(...) t={...} print(pt.pt(t[#t-1])) end
-    mytrace = function(...) end 
-    run(code, store, vmio, stack, mytrace)
-    --run(code, store, stack)
-    print(pt.pt(stack))
-    print(pt.pt(store))
+    run(code, store, vmio, mytrace)
     --]]
 end

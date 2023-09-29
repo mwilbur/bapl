@@ -102,8 +102,8 @@ function getTextMatchedSoFar(src)
 end
 
 function getTextAfterError(src)
-    s = string.sub(src,sourceInfo.characterCount,-1)
-    e = string.find(s,"\n")
+    local s = string.sub(src,sourceInfo.characterCount,-1)
+    local e = string.find(s,"\n") or #s
     return string.sub(s,1,e-1)
 end
 
@@ -112,8 +112,8 @@ function getErrorLineNumber()
 end
 
 function getErrorLine(src)
-    s = string.sub(src,sourceInfo.fullLineCharacterCount+1,-1)
-    e = string.find(s,"\n")
+    local s = string.sub(src,sourceInfo.fullLineCharacterCount+1,-1)
+    local e = string.find(s,"\n") or #s
     return string.sub(s,1,e-1)
 end
 
@@ -126,7 +126,7 @@ local spaces = V"spaces"
 
 
 local function reservedWords() 
-    local reservedWords = {"return","if","else","for","while"}
+    local reservedWords = {"return","if","else","for","while", "new"}
     local excluded = P(false)
     for i=1,#reservedWords do
         excluded = excluded + reservedWords[i]
@@ -160,6 +160,7 @@ local block         = V"block"
 local condition     = V"condition"
 local conditional   = V"conditional"
 local elif          = V"elif"
+local lhs           = V"lhs"
 
 local function T(t)
     return P(t)*spaces
@@ -186,7 +187,8 @@ local grammar = P{ "prog",
         numeral + 
         T("-")*numeral + 
         T("-")^-1*(T("(")*expr*T(")")) + 
-        T("-")^-1*variable,
+        T("-")^-1*lhs +
+        collectAndApply(Rw("new")*T("[")*expr*T("]"), simpleNode("new","size")),
         unaryAst),
 
     term = collectAndApply( 
@@ -200,6 +202,8 @@ local grammar = P{ "prog",
     sums = collectAndApply( 
         power*(opAD*power)^0,                   
         binaryAst),
+
+    lhs  = collectAndApply(variable*T("[")*expr*T("]"),simpleNode("indexed","name","index")) + variable,
 
     expr = collectAndApply( 
         sums*(opCM*sums)^-1,                     
@@ -223,8 +227,8 @@ local grammar = P{ "prog",
                 collectAndApply(Rw("while")*expr*block, simpleNode("while1","cond","block")) +
                 block +
                 collectAndApply(
-                    identifier*T("=")*expr, 
-                    simpleNode("assignment","name","value")) +
+                    lhs*T("=")*expr, 
+                    simpleNode("assignment","lhs","value")) +
                 collectAndApply(
                     Rw("return")*expr,
                     simpleNode("ret","value")) +

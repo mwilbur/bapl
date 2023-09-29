@@ -1,5 +1,5 @@
 local M = {}
-
+pt=require"pt"
 local binops = {
     ["+"]  = "add", 
     ["-"]  = "sub", 
@@ -49,16 +49,22 @@ function Compiler:fixupJmp(jmpAddr)
     self.code[jmpAddr] = self:getCurrentLocation()-jmpAddr
 end
     
-
 function Compiler:codeExpr(ast) 
     if ast.tag == "number" then
         self:addCode("push")
         self:addCode(ast.value)
     elseif ast.tag == "variable" then
         self:addCode("load")
-        local var = self:decodeVar(ast.value)
+        local var = self:declareVar(ast.value)
         if not var then error("Undeclared variable "..ast.value) end
         self:addCode(var)
+    elseif ast.tag == "indexed" then
+        self:codeExpr(ast.name)
+        self:codeExpr(ast.index)
+        self:addCode("getarray")
+    elseif ast.tag == "new" then 
+        self:codeExpr(ast.size)
+        self:addCode("newarray")
     elseif ast.tag == "unary" then
         self:codeExpr(ast.value)
         self:addCode(unaryops[ast.op])
@@ -89,11 +95,22 @@ function Compiler:codeExpr(ast)
     end
 end
 
-function Compiler:codeStat(ast) 
-    if ast.tag == "assignment" then
+function Compiler:codeAssign(ast)
+    local lhs = ast.lhs
+    if lhs.tag == "variable" then
         self:codeExpr(ast.value)
         self:addCode("store")
-        self:addCode(self:declareVar(ast.name))
+        self:addCode(self:declareVar(lhs.value))
+    elseif lhs.tag == "indexed" then
+        self:codeExpr(lhs.name)
+        self:codeExpr(lhs.index)
+        self:codeExpr(ast.value)
+        self:addCode("setarray")
+    end
+end
+function Compiler:codeStat(ast) 
+    if ast.tag == "assignment" then
+        self:codeAssign(ast)
     elseif ast.tag == "statements" then
         self:codeStat(ast.s1)
         self:codeStat(ast.s2)
