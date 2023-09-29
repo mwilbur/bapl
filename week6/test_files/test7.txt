@@ -1,0 +1,4 @@
+x=1;
+n=1;
+while n<=6 { x = x * n; n = n + 1 };
+return x

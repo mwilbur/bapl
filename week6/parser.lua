@@ -8,8 +8,15 @@ function I(msg)
     return P(function (_,p) io.write(msg,"\n") return true end)
 end
 
-local function numberAst(num)
-    return {tag = "number", value = num}
+local function simpleNode(tag, ...)
+    local nodeParams = table.pack(...)
+    return function(nodeValues)
+        ast = {tag=tag}
+        for i,k in ipairs(nodeParams) do
+            ast[k] = nodeValues[i]
+        end
+        return ast
+    end
 end
 
 local function unaryAst(pair) 
@@ -38,20 +45,11 @@ end
 -- tree4 = { tag = "binop", e1 = tree2, e2 = n3 }
 
 local function binaryAst(lst)
-    print(pt.pt(lst))
     local tree = lst[1]
     for i=2,#lst,2 do
         tree = { tag = "binary", e1 = tree, op = lst[i], e2 = lst[i+1] }
     end
     return tree
-end
-
-local function variableAst(var) 
-    return {tag = "variable", value = var}
-end
-
-local function assignmentAst(assignment)
-    return {tag = "assignment", name = assignment[1], value = assignment[2]}
 end
 
 local function statementsAst(statements)
@@ -64,8 +62,15 @@ local function statementsAst(statements)
     end
 end
 
-local function returnAst(retExpr) 
-    return {tag = "ret", value=retExpr[1]}
+local function conditionalAst(params)
+    -- if the number of parameters is even, there is no "else" clause
+    -- if the number of parameters is odd, there is an else clause 
+    local top= #params%2 == 0 and #params or #params-1
+    local t = { tag="if", cond=params[top-1], th=params[top], el = params[top+1] }
+    for n=top-2,1,-2 do
+        t = {tag = "if", cond = params[n-1], th = params[n], el = t }
+    end
+    return t
 end
 
 local function outAst(outExpr) 
@@ -119,14 +124,18 @@ local updateCharacterCount = P(function(_,p) updateCharInfo(p) return true end)
 local block_comment = V"block_comment"
 local spaces = V"spaces"
 
+
 local function reservedWords() 
-    local reservedWords = {"return","if","for","while"}
+    local reservedWords = {"return","if","else","for","while"}
     local excluded = P(false)
     for i=1,#reservedWords do
         excluded = excluded + reservedWords[i]
     end
     return excluded
 end
+
+
+local excluded = reservedWords()
 
 local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
@@ -136,8 +145,8 @@ local comment = "#"*(P(1)-"\n")^0
 local base10_integer    = P"-"^-1*R"09"^1 / tonumber * spaces
 local base16_integer    = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * spaces
 local base10_float      = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * spaces
-local numeral           = (base10_float + base16_integer + base10_integer) / numberAst
-local variable          = identifier / variableAst 
+local numeral           = Ct(base10_float + base16_integer + base10_integer) / simpleNode("number","value")
+local variable          = Ct(identifier) / simpleNode("variable","value") 
 local out               = P"@" * spaces 
 
 local factor        = V"factor"
@@ -149,6 +158,8 @@ local statement     = V"statement"
 local statements    = V"statements"
 local block         = V"block"
 local condition     = V"condition"
+local conditional   = V"conditional"
+local elif          = V"elif"
 
 local function T(t)
     return P(t)*spaces
@@ -159,9 +170,10 @@ local function Rw(t)
     return P(t)*-alphanum*spaces
 end
 
-local opAD  = C(S"+-" )*spaces
-local opML  = C(S"*/%")*spaces
+local opAD  = (C(S"+-" )+C("and")+C("or"))*spaces
+local opML  = C(S"*/%") *spaces
 local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
+
 
 local function collectAndApply(p,f) return Ct(p) / f end
 
@@ -171,51 +183,60 @@ local grammar = P{ "prog",
     block_comment   = P("#{")*((block_comment + (1-P("}#")))^0)*P("}#"),
 
     factor          = collectAndApply( 
-                        numeral + 
-                            T("-")*numeral + 
-                            T("-")^-1*(T("(")*expr*T(")")) + 
-                            T("-")^-1*variable,
-                        unaryAst),
+        numeral + 
+        T("-")*numeral + 
+        T("-")^-1*(T("(")*expr*T(")")) + 
+        T("-")^-1*variable,
+        unaryAst),
 
-    term            = collectAndApply( 
-                        factor*(opML*factor)^0,
-                        binaryAst),
+    term = collectAndApply( 
+        factor*(opML*factor)^0,
+        binaryAst),
 
-    power           = collectAndApply( 
-                        term*(C(T("^"))*term)^-1,
-                        binaryAst),
+    power = collectAndApply( 
+        term*(C(T("^"))*term)^-1,
+        binaryAst),
 
-    sums            = collectAndApply( 
-                        power*(opAD*power)^0,                   
-                        binaryAst),
+    sums = collectAndApply( 
+        power*(opAD*power)^0,                   
+        binaryAst),
 
-    expr            = collectAndApply( 
-                        sums*(opCM*sums)^-1,                     
-                        binaryAst),
-                    
-    condition       = collectAndApply(
-                        T("!")^-1*expr,
-                        unaryAst),
+    expr = collectAndApply( 
+        sums*(opCM*sums)^-1,                     
+        binaryAst),
 
-    block           = T("{")*statements*T(";")^-1*T("}") + T("{")*T("}"),
+    condition = collectAndApply(
+        T("!")^-1*expr,
+        unaryAst),
 
-    statement       = Rw("if")*condition*block + 
-                      block +
-                      collectAndApply(
-                          identifier*T("=")*expr, 
-                          assignmentAst) +
-                      collectAndApply(
-                          Rw("return")*expr,
-                          returnAst) +
-                      collectAndApply(
-                          out*expr,
-                          outAst),
+    block = T("{")*statements*T(";")^-1*T("}") + T("{")*T("}"),
+    
+    conditional =  collectAndApply(
+                    Rw("if")*condition*block*elif,
+                    simpleNode("if","cond","th","el")),
+    
+    elif  =       collectAndApply(
+                    (Rw("elseif")*condition*block)^0 * (Rw("else")*block)^-1, 
+                    conditionalAst),
+    
+    statement = conditional +
+                collectAndApply(Rw("while")*expr*block, simpleNode("while1","cond","block")) +
+                block +
+                collectAndApply(
+                    identifier*T("=")*expr, 
+                    simpleNode("assignment","name","value")) +
+                collectAndApply(
+                    Rw("return")*expr,
+                    simpleNode("ret","value")) +
+                collectAndApply(
+                    out*expr,
+                    outAst),
 
-    statements      = collectAndApply(
-                        statement*(T(";")*statements^-1)^-1,
-                        statementsAst),
+    statements = collectAndApply(
+        statement*(T(";")*statements^-1)^-1,
+        statementsAst),
 
-    prog            =   spaces*statements*-1
+    prog = spaces*statements*-1
 }
 
 function M.parse(input)
