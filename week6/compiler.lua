@@ -62,9 +62,31 @@ function Compiler:codeExpr(ast)
         self:codeExpr(ast.name)
         self:codeExpr(ast.index)
         self:addCode("getarray")
-    elseif ast.tag == "new" then 
+    elseif ast.tag == "new" then
         self:codeExpr(ast.size)
-        self:addCode("newarray")
+        self:addCode("newarray") 
+        -- multi-dimensional new loop
+        if ast.eltype ~= nil then
+            -- loop counter used to fill new array
+            self:codeExpr(ast.size)
+            self:addCode("jmpzp")
+            self:addCode(0)
+            local l1 = self:getCurrentLocation()
+            -- steal from FORTH -- duplicate destination array
+            -- and next index in that array at which to store 
+            self:addCode("2dup")
+            -- create the next level of table which
+            -- will be used to set all the elements
+            -- of the newly created array above
+            self:codeExpr(ast.eltype)
+            self:addCode("setarray")
+            self:addCode("dec")
+            self:addCode("jmp")
+            self:addCode(l1-self:getCurrentLocation()-3)
+            self:fixupJmp(l1)
+            -- cleanup loop counter and array value
+            self:addCode("pop")
+        end
     elseif ast.tag == "unary" then
         self:codeExpr(ast.value)
         self:addCode(unaryops[ast.op])

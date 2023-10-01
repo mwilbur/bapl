@@ -23,7 +23,9 @@ local machine_ops = {
     ne  = function (x,y) return compare(x~=y) end
 }
 
+
 local Stack = {}
+M.Stack = Stack
 function Stack:new() 
     local t= { top = 0, data = {} }
     self.__index = self
@@ -33,7 +35,7 @@ end
 
 function Stack:push(...)
     local vals = table.pack(...)
-    for i = 1,#vals do
+    for i = 1,vals.n do
         self.top=self.top+1
         self.data[self.top]=vals[i]
     end
@@ -50,12 +52,18 @@ function Stack:pop(n)
     return table.unpack(t)
 end
 
-function Stack:peek()
-    return self.data[self.top]
+function Stack:peek(n,loc)
+    n = n or 1
+    loc = loc or 0
+    local _t = {}
+    for i = 1,n do
+        _t[n-(i-1)] = self.data[self.top-(i-1)]
+    end
+    return table.unpack(_t)
 end
 
 function M.run(code,store,io,tracefunc) 
-    local tracefunc = tracefunc or function(...) end 
+    tracefunc = tracefunc or function(...) end 
     local pc = 1
     local stack = Stack:new()
     while true do
@@ -69,6 +77,15 @@ function M.run(code,store,io,tracefunc)
             stack:push(code[pc])
         elseif op=="pop" then
             stack:pop()
+        elseif op=="dup" then
+            stack:push(stack:peek())      
+        elseif op=="2dup" then
+            stack:push(stack:peek(2))  
+        elseif op=="swp" then
+            local a,b= stack:pop(2)
+            stack:push(b,a)
+        elseif op=="dec" then
+            stack:push(stack:pop()-1)
         elseif op=="load" then
             pc = pc + 1
             local id = code[pc]
@@ -82,10 +99,11 @@ function M.run(code,store,io,tracefunc)
             stack:push({ size = size })
         elseif op=="setarray" then
             local tbl, index, value = stack:pop(3)
+            assert(index <= tbl.size, "array index out of bounds!") 
             tbl[index] = value
         elseif op=="getarray" then
             local tbl, index = stack:pop(2)
-            assert(index <= tbl.size) 
+            assert(index <= tbl.size, "array index out of bounds!") 
             stack:push(tbl[index])
         elseif op=="neg" then
             -- bit inefficient, could optimize this case?

@@ -52,6 +52,22 @@ local function binaryAst(lst)
     return tree
 end
 
+local function indexedAst(lst)
+    local tree = lst[1]
+    for i=2,#lst do
+        tree = { tag = "indexed", name = tree, index = lst[i] }
+    end
+    return tree
+end
+
+local function multidimNewAst(lst)
+    local tree = { tag = "new", size = lst[#lst] }
+    for i = #lst-1,1,-1 do
+        tree = { tag = "new", size = lst[i], eltype = tree }
+    end 
+    return tree
+end
+
 local function statementsAst(statements)
     if statements[1]== nil and statements[2]==nil then
         return {}
@@ -188,7 +204,7 @@ local grammar = P{ "prog",
         T("-")*numeral + 
         T("-")^-1*(T("(")*expr*T(")")) + 
         T("-")^-1*lhs +
-        collectAndApply(Rw("new")*T("[")*expr*T("]"), simpleNode("new","size")),
+        collectAndApply(Rw("new")*(T("[")*expr*T("]"))^1, multidimNewAst),
         unaryAst),
 
     term = collectAndApply( 
@@ -203,7 +219,7 @@ local grammar = P{ "prog",
         power*(opAD*power)^0,                   
         binaryAst),
 
-    lhs  = collectAndApply(variable*T("[")*expr*T("]"),simpleNode("indexed","name","index")) + variable,
+    lhs  = collectAndApply(variable*(T("[")*expr*T("]"))^0,indexedAst),
 
     expr = collectAndApply( 
         sums*(opCM*sums)^-1,                     
