@@ -1,0 +1,2 @@
+x=0 or 5 and 3 ;
+return x
