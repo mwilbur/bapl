@@ -62,21 +62,26 @@ function Stack:peek(n,loc)
     return table.unpack(_t)
 end
 
-function M.run(code,store,io,tracefunc) 
+function M.run(code,store,stack,io,tracefunc) 
     tracefunc = tracefunc or function(...) end 
     local pc = 1
-    local stack = Stack:new()
     while true do
+        tracefunc(pc,stack.top,code,stack.data,store)
         op = code[pc]
         if op == "ret" then
             break
+        elseif op == "call" then
+            pc = pc + 1
+            local code = code[pc]
+            M.run(code,store,stack,io,tracefunc)
         elseif code[pc] == "out" then
             io.out(stack:pop())
         elseif op=="push" then
             pc = pc + 1
             stack:push(code[pc])
         elseif op=="pop" then
-            stack:pop()
+            pc=pc+1
+            stack:pop(code[pc])
         elseif op=="dup" then
             stack:push(stack:peek())      
         elseif op=="2dup" then

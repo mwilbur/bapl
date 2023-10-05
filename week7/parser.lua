@@ -79,14 +79,21 @@ local function statementsAst(statements)
 end
 
 local function conditionalAst(params)
-    -- if the number of parameters is even, there is no "else" clause
-    -- if the number of parameters is odd, there is an else clause 
-    local top= #params%2 == 0 and #params or #params-1
-    local t = { tag="if", cond=params[top-1], th=params[top], el = params[top+1] }
-    for n=top-2,1,-2 do
-        t = {tag = "if", cond = params[n-1], th = params[n], el = t }
+    if #params == 0 then
+        return
+    elseif #params == 1 then
+        return params[1]
+    else
+        -- if the number of parameters is even, there is no "else" clause
+        -- if the number of parameters is odd, there is an else clause 
+        local top= #params%2 == 0 and #params or #params-1
+        local t = { tag="if", cond=params[top-1], th=params[top], el = params[top+1] }
+        for n=top-2,1,-2 do
+            t = {tag = "if", cond = params[n-1], th = params[n], el = t }
+        end
+        return t
     end
-    return t
+    
 end
 
 local function outAst(outExpr) 
@@ -142,7 +149,7 @@ local spaces = V"spaces"
 
 
 local function reservedWords() 
-    local reservedWords = {"return","if","else","for","while", "new"}
+    local reservedWords = {"return","if","else","for","while","new","function"}
     local excluded = P(false)
     for i=1,#reservedWords do
         excluded = excluded + reservedWords[i]
@@ -155,14 +162,14 @@ local excluded = reservedWords()
 
 local alpha = R("az","AZ")
 local alphanum = alpha + R"09"
-local identifier = C(P"_"^0*alpha*(alphanum+"'")^0 - excluded)*spaces
+
 local comment = "#"*(P(1)-"\n")^0
 
 local base10_integer    = P"-"^-1*R"09"^1 / tonumber * spaces
 local base16_integer    = "0" * S"xX" * R("09","af","AF")^1 / function(x) return tonumber(x,16) end * spaces
 local base10_float      = (R"09"^1*"."*R"09"^0 + "."*R"09"^1) / tonumber * spaces
 local numeral           = Ct(base10_float + base16_integer + base10_integer) / simpleNode("number","value")
-local variable          = Ct(identifier) / simpleNode("variable","value") 
+
 local out               = P"@" * spaces 
 
 local factor        = V"factor"
@@ -177,6 +184,9 @@ local condition     = V"condition"
 local conditional   = V"conditional"
 local elif          = V"elif"
 local lhs           = V"lhs"
+local identifier    = V"identifier"
+local funcDesc      = V"funcDesc"
+local call          = V"call"
 
 local function T(t)
     return P(t)*spaces
@@ -190,19 +200,22 @@ end
 local opAD  = (C(S"+-" )+C("and")+C("or"))*spaces
 local opML  = C(S"*/%") *spaces
 local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
-
+local variable          = Ct(identifier) / simpleNode("variable","value") 
 
 local function collectAndApply(p,f) return Ct(p) / f end
 
 local grammar = P{ "prog",
     spaces          = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount),
+    
+    identifier = C(P"_"^0*alpha*(alphanum+"'")^0 - excluded)*spaces,
 
     block_comment   = P("#{")*((block_comment + (1-P("}#")))^0)*P("}#"),
 
     factor          = collectAndApply( 
         numeral + 
         T("-")*numeral + 
-        T("-")^-1*(T("(")*expr*T(")")) + 
+        T("-")^-1*(T("(")*expr*T(")")) +
+        T("-")^-1*call +
         T("-")^-1*lhs +
         collectAndApply(Rw("new")*(T("[")*expr*T("]"))^1, multidimNewAst),
         unaryAst),
@@ -220,6 +233,8 @@ local grammar = P{ "prog",
         binaryAst),
 
     lhs  = collectAndApply(variable*(T("[")*expr*T("]"))^0,indexedAst),
+    
+    call = collectAndApply(identifier*T"("*T")",simpleNode("call","fname")),
 
     expr = collectAndApply( 
         sums*(opCM*sums)^-1,                     
@@ -229,7 +244,7 @@ local grammar = P{ "prog",
         T("!")^-1*expr,
         unaryAst),
 
-    block = T("{")*statements*T(";")^-1*T("}") + T("{")*T("}"),
+    block = collectAndApply( T("{")*statements*T(";")^-1*T("}") + T("{")*T("}"), simpleNode("block","body")),
     
     conditional =  collectAndApply(
                     Rw("if")*condition*block*elif,
@@ -242,6 +257,7 @@ local grammar = P{ "prog",
     statement = conditional +
                 collectAndApply(Rw("while")*expr*block, simpleNode("while1","cond","block")) +
                 block +
+                call +
                 collectAndApply(
                     lhs*T("=")*expr, 
                     simpleNode("assignment","lhs","value")) +
@@ -256,7 +272,9 @@ local grammar = P{ "prog",
         statement*(T(";")*statements^-1)^-1,
         statementsAst),
 
-    prog = spaces*statements*-1
+    funcDesc = collectAndApply(Rw("function") * identifier * T"(" * T")" * (T";" + block), simpleNode("func","name","body")),
+
+    prog = spaces*Ct(funcDesc^1)*-1
 }
 
 function M.parse(input)

@@ -20,7 +20,7 @@ local unaryops = {
     ["!"] = "not"
 }
 
-local Compiler = { code = {}, vars = {}, nvars = 0 }
+local Compiler = { funcs = {}, vars = {}, nvars = 0 }
 
 function Compiler:addCode(opcode)
     local code = self.code
@@ -48,6 +48,15 @@ end
 function Compiler:fixupJmp(jmpAddr)
     self.code[jmpAddr] = self:getCurrentLocation()-jmpAddr
 end
+
+function Compiler:codeCall(ast) 
+    local func = self.funcs[ast.fname]
+    if not func then
+        error("Undefined function" .. ast.fname)
+    end
+    self:addCode("call")
+    self:addCode(func.code)
+end
     
 function Compiler:codeExpr(ast) 
     if ast.tag == "number" then
@@ -58,6 +67,8 @@ function Compiler:codeExpr(ast)
         local var = self:declareVar(ast.value)
         if not var then error("Undeclared variable "..ast.value) end
         self:addCode(var)
+    elseif ast.tag == "call" then
+        self:codeCall(ast)
     elseif ast.tag == "indexed" then
         self:codeExpr(ast.name)
         self:codeExpr(ast.index)
@@ -130,9 +141,18 @@ function Compiler:codeAssign(ast)
         self:addCode("setarray")
     end
 end
+
+function Compiler:codeBlock(ast)
+    if ast.body then
+        self:codeStat(ast.body)
+    end
+end
+
 function Compiler:codeStat(ast) 
     if ast.tag == "assignment" then
         self:codeAssign(ast)
+    elseif ast.tag == "block" then
+        self:codeBlock(ast)
     elseif ast.tag == "statements" then
         self:codeStat(ast.s1)
         self:codeStat(ast.s2)
@@ -142,6 +162,10 @@ function Compiler:codeStat(ast)
     elseif ast.tag == "ret" then
         self:codeExpr(ast.value)
         self:addCode("ret")
+    elseif ast.tag == "call" then
+        self:codeCall(ast)
+        self:addCode("pop")
+        self:addCode(1)
     elseif ast.tag == "while1" then
         local l1 = self:getCurrentLocation()
         self:codeExpr(ast.cond)
@@ -171,12 +195,36 @@ function Compiler:codeStat(ast)
     end
 end
 
+function Compiler:codeFunc(ast)
+    -- check to see if the function has already been defined
+    -- could probably be more careful here...forward declared functions
+    -- exist in our table self.funcs but the code table is empty and waiting
+    -- to be filled
+        
+    -- this way, other functions that referred to it will automatically 
+    -- get the proper definition via the table reference
+    local code = self.funcs[ast.name] and self.funcs[ast.name].code or {}
+    self.funcs[ast.name] = { code = code }
+    self.code = code
+    
+    -- a nil body means a forward declaration to be filled in later
+    if ast.body then
+        self:codeStat(ast.body)
+        Compiler:addCode("push")
+        Compiler:addCode(0)
+        Compiler:addCode("ret")
+    end
+end
+
 function M.compile(ast)
-    Compiler:codeStat(ast)
-    Compiler:addCode("push")
-    Compiler:addCode(0)
-    Compiler:addCode("ret")
-    return Compiler.code
+    for i=1,#ast do
+        Compiler:codeFunc(ast[i])
+    end
+    local main = Compiler.funcs["main"]
+    if not main then
+        error("Missing 'main' function")
+    end
+    return main.code
 end
 
 return M
