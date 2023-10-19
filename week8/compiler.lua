@@ -137,15 +137,16 @@ function Compiler:codeExpr(ast)
           self:codeExpr(ast.e2)
           self:codeExpr(ast.e1)
           if ast.op == "and" then
-            self:addCode("jmpzp") 
+            self:addCode("jmpnzp") 
           elseif ast.op == "or" then
-            self:addCode("jmpnzp")
+            self:addCode("jmpzp")
           end
             self:addCode(0)
             l1=self:getCurrentLocation()
+            self:addCode("swp")
+            self:fixupJmp(l1)
             self:addCode("pop")
             self:addCode(1)
-            self:fixupJmp(l1)
         else
           self:codeExpr(ast.e1)
           self:codeExpr(ast.e2)

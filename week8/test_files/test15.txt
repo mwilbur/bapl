@@ -1,3 +1,4 @@
 function main() {
-  return 0 or 1
+  var y = (5==3) or 1;
+  return y
 }
