@@ -1,0 +1,8 @@
+function main() {
+
+  var x = 10;
+  var y = 5;
+  { var x = 3; var z = 0; z = x/y; return z };
+  return 1;
+}
+  
