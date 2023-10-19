@@ -1,1 +1,3 @@
-a = new [2][1][3];
+function main() {
+  a = new [2][1][3];
+}

@@ -6,7 +6,7 @@ do
 
     local parse,compile,run = parser.parse, compiler.compile, vm.run
 
-    local input = io.open("test_files/test14.txt"):read("a")
+    local input = io.open("test_files/test10.txt"):read("a")
     --local input = "a =  1 "
     local ast = parse(input)
     print(pt.pt(ast))

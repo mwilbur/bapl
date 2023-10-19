@@ -125,6 +125,7 @@ function Compiler:codeExpr(ast)
             self:fixupJmp(l1)
             -- cleanup loop counter and array value
             self:addCode("pop")
+            self:addCode(1)
         end
     elseif ast.tag == "unary" then
         self:codeExpr(ast.value)
@@ -143,6 +144,7 @@ function Compiler:codeExpr(ast)
             self:addCode(0)
             l1=self:getCurrentLocation()
             self:addCode("pop")
+            self:addCode(1)
             self:fixupJmp(l1)
         else
           self:codeExpr(ast.e1)
