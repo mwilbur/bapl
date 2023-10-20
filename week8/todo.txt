@@ -1,2 +1,4 @@
 - "table constructors" / initializer lists for arrays
-- local arrays 
+- local arrays - what does this even mean?
+- TCO
+- target another VM such as https://ageinghacker.net/projects/jitter-tutorial/
