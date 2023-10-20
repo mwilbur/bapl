@@ -2,3 +2,4 @@
 - local arrays - what does this even mean?
 - TCO
 - target another VM such as https://ageinghacker.net/projects/jitter-tutorial/
+- maybe some AST -> AST translation like with macros
