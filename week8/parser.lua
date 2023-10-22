@@ -200,10 +200,12 @@ local function Rw(t)
     return P(t)*-alphanum*spaces
 end
 
-local opAD  = (C(S"+-" )+C("and")+C("or"))*spaces
+local opAD  = C(S"+-")*spaces
+local opLG  = (C("and")+C("or"))*spaces
 local opML  = C(S"*/%") *spaces
 local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
-local variable          = Ct(identifier) / simpleNode("variable","value") 
+local variable = Ct(identifier) / simpleNode("variable","value") 
+
 
 local function collectAndApply(p,f) return Ct(p) / f end
 
@@ -232,7 +234,7 @@ local grammar = P{ "prog",
         binaryAst),
 
     sums = collectAndApply( 
-        power*(opAD*power)^0,                   
+        power*((opAD+opCM)*power)^0,                   
         binaryAst),
 
     lhs  = collectAndApply(variable*(T("[")*expr*T("]"))^0,indexedAst),
@@ -242,7 +244,7 @@ local grammar = P{ "prog",
     args = Ct((expr * (T"," * expr)^0)^-1),
 
     expr = collectAndApply( 
-        sums*(opCM*sums)^-1,                     
+        sums*(opLG*sums)^0,                     
         binaryAst),
 
     condition = collectAndApply(
