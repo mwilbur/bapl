@@ -102,7 +102,11 @@ function M.run(code,store,stack,io,tracefunc)
             local code = code[pc]
             M.run(code,store,stack,io,tracefunc)
         elseif code[pc] == "out" then
-            io.out(stack:pop())
+            while true do
+                local v = stack:pop()
+                if v == "#" then break end
+                io.out(v)
+            end
         elseif op=="push" then
             pc = pc + 1
             stack:push(code[pc])
@@ -126,6 +130,14 @@ function M.run(code,store,stack,io,tracefunc)
             pc = pc + 1
             local id = code[pc]
             stack:push(store[id])
+        elseif op=="loadarray" then
+            pc = pc + 1
+            local id = code[pc]
+            local tbl = store[id]
+            assert(type(tbl)=="table")
+            for _,v in ipairs(tbl) do
+                stack:push(v)
+            end
         elseif op=="storeL" then
             pc = pc + 1
             local idx = code[pc]
@@ -176,7 +188,7 @@ function M.run(code,store,stack,io,tracefunc)
         pc = pc + 1
         tracefunc(pc,stack:top(),code,stack.data,store)
     end
-    print("==========END==============")
+    --print("==========END==============")
     tracefunc(pc,stack:top(),code,stack.data,store)
 end
 

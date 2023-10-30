@@ -6,7 +6,7 @@ do
 
     local parse,compile,run = parser.parse, compiler.compile, vm.run
 
-    local input = io.open("test_files/test14.txt"):read("a")
+    local input = io.open("test_files/test16.txt"):read("a")
     --local input = "a =  1 "
     local ast = parse(input)
     print(pt.pt(ast))
@@ -17,7 +17,15 @@ do
     store = {}
     stack = {}
     vmio = {
-        out = function(v) io.write(">>>>>>",v,"\n") end
+        out = function(v) 
+            io.write(">>>>>>")
+            if type(v)=="table" then
+               print(pt.pt(v))
+            else
+                io.write(v) 
+            end
+            io.write("\n")
+        end
     }
     local function mytrace(pc,tos,code,stack,store) 
         print(string.format("====[pc=%d]==[tos=%d]====",pc,tos))
@@ -30,5 +38,6 @@ do
     end
     local stack = vm.Stack:new()
     run(code, store, stack, vmio, mytrace)
+    print(stack:peek())
     --]]
 end

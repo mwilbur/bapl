@@ -1,4 +1,4 @@
 function fact(n) {
   return n==1 or n==0 and 1 or n*fact(n-1);
 }
-function main() { return fact(6)}
+function main() { @ 5; return fact(6)}

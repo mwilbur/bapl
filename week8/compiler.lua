@@ -90,9 +90,9 @@ function Compiler:codeExpr(ast)
             self:addCode("loadL")
             self:addCode(idx)
         else
-            self:addCode("load")
             local var = self:declareVar(ast.value)
             if not var then error("Undeclared variable "..ast.value) end
+            self:addCode("load")
             self:addCode(var)
         end
     elseif ast.tag == "call" then
@@ -195,7 +195,12 @@ function Compiler:codeStat(ast)
     if ast.tag == "assignment" then
         self:codeAssign(ast)
     elseif ast.tag == "local" then
-        self:codeExpr(ast.init)
+        if ast.init then
+            self:codeExpr(ast.init)
+        else
+            self:addCode("push")
+            self:addCode(0)
+        end
         self.locals[#self.locals+1] = ast.name
     elseif ast.tag == "block" then
         self:codeBlock(ast)
@@ -203,6 +208,8 @@ function Compiler:codeStat(ast)
         self:codeStat(ast.s1)
         self:codeStat(ast.s2)
     elseif ast.tag == "out" then
+        self:addCode("push")
+        self:addCode("#")
         self:codeExpr(ast.value)
         self:addCode("out")
     elseif ast.tag == "ret" then

@@ -1,16 +1,15 @@
-t = {tag="if"}
-pt=require"pt"
-local function simpleNode(tag, ...)
-    local nodeParams = table.pack(...)
-    return function(nodeValues)
-        ast = {tag=tag}
-        for i,k in ipairs(nodeParams) do
-            ast[k] = nodeValues[i]
-        end
-        return ast
-    end
-end
+local pt = require"pt"
 
-s = simpleNode("if","condition","then")
+local t = { 
+    tag = "init",
+    exprs = { 
+        { tag = "init",
+          exprs = {{ tag = "number", value = 4 }} 
+        },
+        { tag = "init",
+          exprs = {{ tag = "number", value = 3 }} 
+        }
+    }
+}
 
-print(pt.pt(s{1,{}}))
+print(pt.pt(t))

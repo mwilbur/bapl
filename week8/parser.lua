@@ -176,6 +176,7 @@ local factor        = V"factor"
 local term          = V"term"
 local power         = V"power"
 local expr          = V"expr"
+local exprs         = V"exprs"
 local sums          = V"sums"
 local statement     = V"statement"
 local statements    = V"statements"
@@ -206,7 +207,32 @@ local opML  = C(S"*/%") *spaces
 local opCM  = C(T("<=") + T("<") + T(">=") + T(">") + T("==") + T("!="))
 local variable = Ct(identifier) / simpleNode("variable","value") 
 
-
+local function initListAst(t) 
+    return { tag="init", exprs = t }
+end
+   
+local function exprRewriteHook(t)
+    if t.tag == "init" then
+        local function f(es,acc)
+            local d = 0
+            for _,t in ipairs(es) do
+                if t.tag == "init" then
+                    f(t.exprs,acc) 
+                else
+                    d = d+1
+                end
+            end
+            if d ~= 0 then
+                acc[#acc+1] = d
+            end
+        end
+        local a = {}
+        local x = f(t.exprs,a)
+        print(pt.pt(t))
+    end
+    return t
+end
+   
 local function collectAndApply(p,f) return Ct(p) / f end
 
 local grammar = P{ "prog",
@@ -216,12 +242,15 @@ local grammar = P{ "prog",
 
     block_comment   = P("#{")*((block_comment + (1-P("}#")))^0)*P("}#"),
 
+    exprs = expr*(T","*exprs)^-1,
+
     factor          = collectAndApply( 
         numeral + 
-        T("-")*numeral + 
-        T("-")^-1*(T("(")*expr*T(")")) +
-        T("-")^-1*call +
-        T("-")^-1*lhs +
+        T"-"*numeral + 
+        T"-"^-1*(T"("*expr*T")") +
+        T"-"^-1*call +
+        T"-"^-1*lhs +
+        collectAndApply(T"{"*exprs*T"}", initListAst)+
         collectAndApply(Rw("new")*(T("[")*expr*T("]"))^1, multidimNewAst),
         unaryAst),
 
@@ -261,13 +290,13 @@ local grammar = P{ "prog",
                     (Rw("elseif")*condition*block)^0 * (Rw("else")*block)^-1, 
                     conditionalAst),
     
-    statement = collectAndApply(Rw"var"*identifier*T"="*expr, simpleNode("local","name","init"))+ 
+    statement = collectAndApply(Rw"var"*identifier*(T"="*expr)^-1, simpleNode("local","name","init"))+ 
                 conditional +
                 collectAndApply(Rw("while")*expr*block, simpleNode("while1","cond","block")) +
                 block +
                 call +
                 collectAndApply(
-                    lhs*T("=")*expr, 
+                    lhs*T("=")*(expr/exprRewriteHook), 
                     simpleNode("assignment","lhs","value")) +
                 collectAndApply(
                     Rw("return")*expr,
