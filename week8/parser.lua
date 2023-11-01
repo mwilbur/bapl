@@ -210,25 +210,63 @@ local variable = Ct(identifier) / simpleNode("variable","value")
 local function initListAst(t) 
     return { tag="init", exprs = t }
 end
+
+local function eq(t1,t2) 
+  if type(t1) == "table" and type(t2) == "table" then
+    if #t1 == #t2 then
+      local e = true
+      for i=1,#t1 do
+        e = e and eq(t1[i],t2[i])
+      end
+      return e
+    else 
+      return false
+    end
+  else
+    return t1 == t2
+  end
+end
+
+local function dims(ts) 
+    if ts.tag ~= "init" then
+      return {}
+    else
+      local ds = {#ts.exprs}
+      local d = dims(ts.exprs[1])
+      for i=2,#ts.exprs do
+        local dd = dims(ts.exprs[i])
+        assert(eq(d,dd),"Inconsistent dimensions")
+      end
+      for _,v in ipairs(d) do
+        ds[#ds+1] = v
+      end
+      return ds
+    end
+end
+
+local function values(ts) 
+    if ts.tag ~= "init" then
+      return ts
+    else
+      local vs={}
+      for i=1,#ts.exprs do
+        vs[#vs+1] = {i,values(ts.exprs[i])}
+      end
+      return vs
+    end
+end
    
-local function exprRewriteHook(t)
+local function initRewriteHook(assgn)
+    local t = assgn[2]
+    local lhs = assgn[1]
     if t.tag == "init" then
-        local function f(es,acc)
-            local d = 0
-            for _,t in ipairs(es) do
-                if t.tag == "init" then
-                    f(t.exprs,acc) 
-                else
-                    d = d+1
-                end
-            end
-            if d ~= 0 then
-                acc[#acc+1] = d
-            end
-        end
-        local a = {}
-        local x = f(t.exprs,a)
-        print(pt.pt(t))
+      local ds = dims(t)
+      local vs = values(t)
+      for i=1,#ds do
+        ds[i] = {tag="number",value=ds[i]}
+      end
+      local md = multidimNewAst(d)
+      return 
     end
     return t
 end
@@ -236,7 +274,7 @@ end
 local function collectAndApply(p,f) return Ct(p) / f end
 
 local grammar = P{ "prog",
-    spaces          = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount),
+    spaces = (((S(" \t") + S("\n")*updateLineCount) + block_comment + comment)^0*updateCharacterCount),
     
     identifier = C(P"_"^0*alpha*(alphanum+"'")^0 - excluded)*spaces,
 
@@ -244,7 +282,7 @@ local grammar = P{ "prog",
 
     exprs = expr*(T","*exprs)^-1,
 
-    factor          = collectAndApply( 
+    factor = collectAndApply( 
         numeral + 
         T"-"*numeral + 
         T"-"^-1*(T"("*expr*T")") +
@@ -296,7 +334,8 @@ local grammar = P{ "prog",
                 block +
                 call +
                 collectAndApply(
-                    lhs*T("=")*(expr/exprRewriteHook), 
+                    --collectAndApply(
+                      lhs*T("=")*expr,--,initRewriteHook), 
                     simpleNode("assignment","lhs","value")) +
                 collectAndApply(
                     Rw("return")*expr,
