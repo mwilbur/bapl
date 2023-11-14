@@ -14,6 +14,22 @@ In order to reduce the risk of dumb errors in manipulating the top-of-stack vari
 
 # Self-Evaluation
 
+## Rubric
+
+### Language Completion
+
+I'd give myself a (1) Needs Improvement here.  I did not go much beyond the base language
+
+### Code Quality and Report
+
+I think my code is well organized, though error messages could definitely be better.  I'd give myself a (2) Meets Expectations
+
+### Originality and Scope
+
+I'd give myself a (2) Meets expectations, largely because of how I handled multi-dimensional arrays
+
+## Personal Notes
+
 - I enjoyed implementing the language and trying to make the code clean.  Each week I tried to get as much work done in the weekend following the live session in order to improve the odds of staying on track.  I would watch the recorded lectures and then try to anticipate the implementation once the general idea was outlined.  I find I learn more when things break and I have to work through fixing them, as opposed to having full solutions laid out for me
 
 - As far as I can remember I managed to add all of the features that were suggested in the exercises :)
